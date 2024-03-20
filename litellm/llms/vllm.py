@@ -51,6 +51,7 @@ def completion(
         llm, SamplingParams = validate_environment(model=model)
     except Exception as e:
         raise VLLMError(status_code=0, message=str(e))
+    request_id = optional_params.pop('request_id', None)
     sampling_params = SamplingParams(**optional_params)
     if model in custom_prompt_dict:
         # check if the model has a registered custom prompt
@@ -72,7 +73,14 @@ def completion(
     )
 
     if llm:
-        outputs = llm.generate(prompt, sampling_params)
+        if type(llm).__name__ == 'LLM':
+            outputs = llm.generate(prompt, sampling_params)
+        elif type(llm).__name__ == 'AsyncLLMEngine':
+            if request_id is None:
+                raise VLLMError(
+                    status_code=0, message="AsyncLLMEngine requires request_id as a parameter for completion"
+                )
+            outputs = llm.generate(prompt, sampling_params, request_id=request_id)
     else:
         raise VLLMError(
             status_code=0, message="Need to pass in a model name to initialize vllm"
